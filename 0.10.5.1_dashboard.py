@@ -6,22 +6,38 @@ import seaborn as sns
 import os
 import matplotlib
 import matplotlib.pyplot as plt
+import requests
 
 # ✅ 设置中文字体，避免乱码（Mac 用户推荐使用 PingFang SC）
 matplotlib.rcParams['font.sans-serif'] = ['PingFang SC', 'Heiti TC', 'Microsoft YaHei', 'Arial Unicode MS']
 matplotlib.rcParams['axes.unicode_minus'] = False  # 正常显示负号
 
-# === 数据加载 ===
-@st.cache_data
-def load_data(file_name):
-    folder_path = '/Users/elaine_pro/Dropbox/RawData/AIVL_FM/prod_rank_0615/6.5_panel_labeled_MergeDetaildata_sales'
-    file_path = os.path.join(folder_path, file_name)
-    df = pd.read_csv(file_path, low_memory=False)
-    return df
+# === 阿里云 OSS 公共目录 ===
+OSS_BASE_URL = "https://aivl.oss-cn-guangzhou.aliyuncs.com/data/"
 
-# === 获取所有可选文件 ===
-folder_path = '/Users/elaine_pro/Dropbox/RawData/AIVL_FM/prod_rank_0615/6.5_panel_labeled_MergeDetaildata_sales'
-all_files = sorted([f for f in os.listdir(folder_path) if f.startswith("panel_TH_") and f.endswith(".csv")])
+# === 自动加载文件 ===
+def get_all_files_from_oss(base_url, max_index=30):
+    files = []
+    for i in range(2, max_index + 1):  # 尝试从 panel_TH_2 到 panel_TH_30
+        file_name = f"panel_TH_{i}_2024-18-52w.csv"
+        url = base_url + file_name
+        r = requests.head(url)
+        if r.status_code == 200:  # 文件存在
+            files.append(file_name)
+    if not files:
+        st.warning("⚠️ 未找到符合条件的文件，请检查命名或路径。")
+    else:
+        st.info(f"✅ 找到 {len(files)} 个文件：{files}")
+    return files
+
+all_files = get_all_files_from_oss(OSS_BASE_URL)
+
+# === 数据加载 ===
+@st.cache_data(show_spinner=True)
+def load_data(file_name):
+    url = OSS_BASE_URL + file_name
+    df = pd.read_csv(url, low_memory=False)
+    return df
 
 # === 页面结构 ===
 st.title("📊 Product Performance Volatility Dashboard")
